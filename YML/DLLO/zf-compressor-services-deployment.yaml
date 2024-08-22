@@ -16,7 +16,7 @@ spec:
         app: zf-compressor-services
     spec:
       containers:
-      - image: iad.ocir.io/zonafrancabogota/rgt_zfb_d_01/zf-compressor-services:1.0.0
+      - image: iad.ocir.io/zonafrancabogota/rgt_zfb_d_01/zf-compressor-services:{version}
         name: zf-compressor-services
         ports:
         - containerPort: 8087
