@@ -100,11 +100,6 @@
             <artifactId>commons-net</artifactId>
             <version>3.8.0</version>
         </dependency>
-		<dependency>
-			<groupId>com.aspose</groupId>
-			<artifactId>aspose-pdf</artifactId>
-			<version>24.7</version>
-		</dependency>
 	</dependencies>
 
 	<build>
