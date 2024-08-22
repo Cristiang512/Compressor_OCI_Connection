@@ -1,0 +1,6 @@
+version: '3.3'
+services:
+    solicitudes-service-bpm:
+        ports:
+            - '8087:8087'
+        image: 'zf-compressor-services:1.0.0'
