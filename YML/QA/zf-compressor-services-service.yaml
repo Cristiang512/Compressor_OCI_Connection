@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: zf-compressor-services
+  namespace: qa
+  labels:
+    app: zf-compressor-services
+spec:
+  type: NodePort
+  ports:
+  - nodePort: 31032
+    port: 31032
+    protocol: TCP
+    targetPort: 8087
+  selector:
+    app: zf-compressor-services
+status:
+  loadBalancer: {}

@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: prd
+  name: zf-compressor-services
+  labels:
+    app: zf-compressor-services
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zf-compressor-services
+  template:
+    metadata:
+      labels:
+        app: zf-compressor-services
+    spec:
+      containers:
+      - image: iad.ocir.io/zonafrancabogota/rgt_zfb_p_01/zf-compressor-services:1.0.0
+        name: zf-compressor-services
+        ports:
+        - containerPort: 8087
+        resources:
+          requests:
+            memory: "200Mi"
+            cpu: "700m"
+          limits:
+            memory: "500Mi"
+            cpu: "90m"
+        env:
+        - name: ZF_AUDITORIA_URL
+          valueFrom:
+            configMapKeyRef:
+              name: myconfigmap
+              key: ZF_AUDITORIA_URL
+        - name: SECRETKEY_DATASOURCE
+          valueFrom:
+            secretKeyRef:
+              name: mysecret
+              key: SECRETKEY_DATASOURCE
+        - name: RABBIT_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: myconfigmap
+              key: RABBIT_HOST
+        - name: RABBIT_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: myconfigmap
+              key: RABBIT_PORT
+        - name: RABBIT_VHOST
+          valueFrom:
+            configMapKeyRef:
+              name: myconfigmap
+              key: RABBIT_VHOST
+        - name: RABBIT_NOMBRE_COMPRESOR
+          valueFrom:
+            configMapKeyRef:
+              name: myconfigmap
+              key: RABBIT_NOMBRE_COMPRESOR
+        - name: RABBITMQ_USER
+          valueFrom:
+            secretKeyRef:
+              name: mysecret
+              key: RABBITMQ_USER
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysecret
+              key: RABBITMQ_PASSWORD
+        - name: ZF_FTP_USER
+          valueFrom:
+            secretKeyRef:
+              name: mysecret
+              key: ZF_FTP_USER
+        - name: ZF_FTP_PASS
+          valueFrom:
+            secretKeyRef:
+              name: mysecret
+              key: ZF_FTP_PASS
+        - name: ZF_FTP_URL
+          valueFrom:
+            configMapKeyRef:
+              name: myconfigmap
+              key: ZF_FTP_URL
+        - name: ZF_FTP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: myconfigmap
+              key: ZF_FTP_PORT
+        volumeMounts:
+          - name: conexionesbd
+            mountPath: /data
+      volumes:
+        - name: conexionesbd
+          persistentVolumeClaim:
+            claimName: data
+      restartPolicy: Always
+      imagePullSecrets:
+        - name: ocirsecret
+status: {}
