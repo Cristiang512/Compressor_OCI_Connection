@@ -40,5 +40,18 @@
     <logger name="loggiapp-services" level="trace" additivity="false">
         <appender-ref ref="RollingFile" />
     </logger>
+
+    <!-- Configura el patrón de salida del log -->
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>logs/compresor.log</file>
+        <append>true</append>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="info">
+        <appender-ref ref="FILE" />
+    </root>
  
 </configuration>
