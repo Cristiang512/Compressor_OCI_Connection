@@ -1,5 +1,7 @@
 package com.zonafranca.compressor_services.servicios;
 
+import javax.servlet.http.HttpServletRequest;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -28,38 +30,39 @@ public class CompresorListenerService {
 
     @RabbitListener(queues = "compresor-archivos")
     public void recibirMensaje(final Message data) {
-    //    try {
-	// 		String message = new String(data.getBody());
-	// 		log.info("Mensaje recibido: {}", message);
-	// 		try {
-	// 			JSONObject jsonObject = new JSONObject(message);
-	// 			if ("file-system".equalsIgnoreCase(jsonObject.getString("tipo"))) {
-	// 				String rutaArchivo = jsonObject.getString("ruta");
-	// 				compresorFtpService.procesarArchivo(jsonObject, rutaArchivo);
-	// 			} else {
-	// 				log.warn("El tipo no es 'file-system', no se procesará el mensaje");
-	// 			}
-	// 		}catch (JSONException err){
-	// 			System.out.println("Error: " + err.getMessage());
-	// 		}
-	// 	} catch (HttpClientErrorException ex) {
-	// 		if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
-	// 			try {
-	// 				Thread.sleep(ConstantesAplicacion.MESSAGE_RETRY_DELAY);
-	// 			} catch (InterruptedException e) {
-	// 				log.error("Internal server error occurred in API call. Bypassing message requeue {}", e.getMessage(), e);
-	// 				throw new AmqpRejectAndDontRequeueException(e);
-	// 			}
-	// 			log.info("Throwing exception so that message will be requed in the queue.");
-	// 			// Note: Typically Application specific exception should be thrown below
-	// 			throw new RuntimeException();
-	// 		} else {
-	// 			throw new AmqpRejectAndDontRequeueException(ex);
-	// 		}
-	// 	} catch (Exception e) {
-	// 		log.error("Internal server error occurred in API call. Bypassing message requeue {}", e.getMessage(), e);
-	// 		throw new AmqpRejectAndDontRequeueException(e);
-	// 	}
+       try {
+			String message = new String(data.getBody());
+			log.info("Mensaje recibido: {}", message);
+			try {
+				JSONObject jsonObject = new JSONObject(message);
+
+				if ("file-system".equalsIgnoreCase(jsonObject.getString("tipo"))) {
+					String rutaArchivo = jsonObject.getString("ruta");
+					compresorFtpService.procesarArchivo(jsonObject, rutaArchivo);
+				} else {
+					log.warn("El tipo no es 'file-system', no se procesará el mensaje");
+				}
+			}catch (JSONException err){
+				System.out.println("Error: " + err.getMessage());
+			}
+		} catch (HttpClientErrorException ex) {
+			if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
+				try {
+					Thread.sleep(ConstantesAplicacion.MESSAGE_RETRY_DELAY);
+				} catch (InterruptedException e) {
+					log.error("Internal server error occurred in API call. Bypassing message requeue {}", e.getMessage(), e);
+					throw new AmqpRejectAndDontRequeueException(e);
+				}
+				log.info("Throwing exception so that message will be requed in the queue.");
+				// Note: Typically Application specific exception should be thrown below
+				throw new RuntimeException();
+			} else {
+				throw new AmqpRejectAndDontRequeueException(ex);
+			}
+		} catch (Exception e) {
+			log.error("Internal server error occurred in API call. Bypassing message requeue {}", e.getMessage(), e);
+			throw new AmqpRejectAndDontRequeueException(e);
+		}
 
     }
 }

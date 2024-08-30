@@ -1,6 +1,5 @@
 package com.zonafranca.compressor_services;
 
-import java.util.Queue;
 import java.util.TimeZone;
 
 import javax.annotation.PostConstruct;

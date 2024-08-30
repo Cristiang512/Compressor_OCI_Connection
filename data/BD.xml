@@ -1,6 +1,20 @@
 <ROWSET>
 	<ROW>
         <DEFAULT>true</DEFAULT>
+        <ID>10</ID>
+        <DESCRIPTION>Zona Franca DESARROLLO-DLLO4</DESCRIPTION>
+        <COD_ZF>918</COD_ZF>
+        <DBNAME>DLLO04</DBNAME>
+        <DBUSER>ZFLOG</DBUSER>
+        <DBPASS>ZFLOG</DBPASS>
+        <URLSTRING>jdbc:oracle:thin:@(DESCRIPTION =(ADDRESS = (PROTOCOL = TCP)(HOST = 10.0.0.53)(PORT = 1521))(CONNECT_DATA =(SERVICE_NAME = DLLO04.sub10162153200.vcnzfb02.oraclevcn.com)))</URLSTRING>
+        <USERREPORT>NDNkY2VkMjIzYzU4OGNiZcfYBRPnT1GX4f7qUCq5zaQ=</USERREPORT>
+        <PASSWORDREPORT>ZmUxNjA3ZjVmODE2Mjk5Nf/loWc7dbu1CuVRT/NEbsE=</PASSWORDREPORT>
+        <IMAGEN_ZF>images/zonaf.jpg</IMAGEN_ZF>
+        <DRIVER>oracle.jdbc.driver.OracleDriver</DRIVER>
+    </ROW>
+	<!-- <ROW>
+        <DEFAULT>true</DEFAULT>
         <ID>1</ID>
         <DESCRIPTION>Zona Franca - Desarrollo 6</DESCRIPTION>
         <COD_ZF>918</COD_ZF>
@@ -12,7 +26,7 @@
         <PASSWORDREPORT>ZmUxNjA3ZjVmODE2Mjk5Nf/loWc7dbu1CuVRT/NEbsE=</PASSWORDREPORT>
         <IMAGEN_ZF>images/zonaf.jpg</IMAGEN_ZF>
         <DRIVER>oracle.jdbc.driver.OracleDriver</DRIVER>
-    </ROW>
+    </ROW> -->
 	<ROW>
 		<DEFAULT>true</DEFAULT>
 		<ID>25</ID>
