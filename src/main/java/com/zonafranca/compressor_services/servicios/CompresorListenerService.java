@@ -1,7 +1,5 @@
 package com.zonafranca.compressor_services.servicios;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -21,13 +19,17 @@ public class CompresorListenerService {
 
     private static final Logger log = LoggerFactory.getLogger(CompresorListenerService.class);
 
-	// private final CompresorFtpService compresorFtpService;
+	private final CompresorFtpService compresorFtpService;
 	
-	// @Autowired
-	// public CompresorListenerService(CompresorFtpService compresorFtpService) {
-	// 	this.compresorFtpService = compresorFtpService;
-	// }
+	@Autowired
+	public CompresorListenerService(CompresorFtpService compresorFtpService) {
+		this.compresorFtpService = compresorFtpService;
+	}
 
+	/**
+	 * Método que recibe los mensajes de la cola de RabbitMQ
+	 * @param data
+	 */
     // @RabbitListener(queues = "compresor-archivos")
     // public void recibirMensaje(final Message data) {
     //    try {
@@ -63,6 +65,5 @@ public class CompresorListenerService {
 	// 		log.error("Internal server error occurred in API call. Bypassing message requeue {}", e.getMessage(), e);
 	// 		throw new AmqpRejectAndDontRequeueException(e);
 	// 	}
-
     // }
 }

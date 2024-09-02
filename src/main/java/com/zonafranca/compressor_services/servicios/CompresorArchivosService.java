@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Iterator;
 
 import javax.imageio.IIOImage;
@@ -12,21 +13,39 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
+
 import java.awt.image.BufferedImage;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+
+import com.aspose.pdf.Annotation;
+import com.aspose.pdf.Artifact;
+import com.aspose.pdf.ArtifactCollection;
 import com.aspose.pdf.Document;
+import com.aspose.pdf.FontRepository;
+import com.aspose.pdf.Page;
+import com.aspose.pdf.StampAnnotation;
+import com.aspose.pdf.TextFragment;
+import com.aspose.pdf.TextStamp;
 import com.aspose.pdf.optimization.OptimizationOptions;
 import com.madgag.gif.fmsware.AnimatedGifEncoder;
 import com.madgag.gif.fmsware.GifDecoder;
+
+import java.util.List;
 
 @Service
 public class CompresorArchivosService {
 
     Logger logger = LoggerFactory.getLogger(CompresorArchivosService.class);
 
+    /**
+     * Comprime un archivo según su extensión
+     * @param inputStream
+     * @param rutaArchivo
+     * @return
+     */
     public byte[] comprimirArchivos(InputStream inputStream, String rutaArchivo) {
         byte[] compressedBytes = null;
         String extension = getFileExtension(rutaArchivo);
@@ -46,11 +65,16 @@ public class CompresorArchivosService {
         return compressedBytes;
     }
 
+    /**
+     * Comprime un archivo PDF
+     * @param inputStream
+     * @return
+     */
     public byte[] comprimirPdf(InputStream inputStream) {
         logger.info("Comprimiendo archivo PDF... {}", inputStream);
         byte[] compressedPdfBytes = null;
         try {
-            if (isValidPdf(inputStream)) {
+            if (pdfEsValido(inputStream)) {
                 logger.info("El archivo es un PDF válido.");
                 
                 inputStream.reset();
@@ -61,11 +85,11 @@ public class CompresorArchivosService {
                 OptimizationOptions opt = new OptimizationOptions();
     
                 opt.getImageCompressionOptions().setCompressImages(true);
-                opt.getImageCompressionOptions().setImageQuality(50);
+                opt.getImageCompressionOptions().setImageQuality(50); // Calidad de compresión de imágenes (0-100), menos de 50 las imagenes se pixelan
                 opt.getImageCompressionOptions().setMaxResolution(150);
                 opt.getImageCompressionOptions().setResizeImages(false);
                 pdfDocument.optimizeResources(opt);
-                
+
                 pdfDocument.save(outputStream);
                 pdfDocument.close();
                 compressedPdfBytes = outputStream.toByteArray();
@@ -78,7 +102,12 @@ public class CompresorArchivosService {
         return compressedPdfBytes;
     }
 
-    public boolean isValidPdf(InputStream inputStream) {
+    /**
+     * Verifica si un archivo es un PDF válido
+     * @param inputStream
+     * @return
+     */
+    public boolean pdfEsValido(InputStream inputStream) {
         if (inputStream == null) {
             return false;
         }
@@ -103,6 +132,13 @@ public class CompresorArchivosService {
         }
     }
     
+    /**
+     * Comprime una imagen
+     * @param inputStream
+     * @param formatName
+     * @param quality
+     * @return
+     */
     public byte[] comprimirImagen(InputStream inputStream, String formatName, float quality) {
         byte[] compressedImageBytes = null;
         try {
@@ -139,6 +175,12 @@ public class CompresorArchivosService {
         return compressedImageBytes;
     }
 
+    /**
+     * Comprime un archivo GIF
+     * @param inputStream
+     * @param quality
+     * @return
+     */
     public byte[] comprimirGif(InputStream inputStream, int quality) {
         byte [] compressedGifBytes = null;
         try {
@@ -172,13 +214,20 @@ public class CompresorArchivosService {
         return compressedGifBytes;
     }
 
+    /**
+     * Comprime un archivo TIF
+     * @param inputStream
+     * @param compressionType
+     * @param quality
+     * @return
+     */
     public byte[] comprimirTiff(InputStream inputStream, String compressionType, float quality) {
         byte[] compressedTiffBytes = null;
         try {
             BufferedImage image = ImageIO.read(inputStream);
     
             if (image == null) {
-                throw new IOException("No se pudo leer la imagen TIFF.");
+                throw new IOException("No se pudo leer la imagen TIF.");
             }
     
             ByteArrayOutputStream compressedOutputStream = new ByteArrayOutputStream();
@@ -186,7 +235,7 @@ public class CompresorArchivosService {
     
             Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("tif");
             if (!writers.hasNext()) {
-                throw new IllegalStateException("No se encontró un escritor para el formato TIFF.");
+                throw new IllegalStateException("No se encontró un escritor para el formato TIF.");
             }
     
             ImageWriter writer = writers.next();
@@ -207,6 +256,11 @@ public class CompresorArchivosService {
         return compressedTiffBytes;
     }
 
+    /**
+     * Obtiene la extensión de un archivo
+     * @param filePath
+     * @return
+     */
     public static String getFileExtension(String filePath) {
         String fileName = Paths.get(filePath).getFileName().toString();
         int lastDotIndex = fileName.lastIndexOf('.');

@@ -88,6 +88,11 @@ spec:
             configMapKeyRef:
               name: myconfigmap
               key: ZF_FTP_PORT
+        - name: URL_AUDITORIA_PICIZ
+          valueFrom:
+            configMapKeyRef:
+              name: myconfigmap
+              key: URL_AUDITORIA_PICIZ
       #   volumeMounts:
       #     - name: conexionesbd
       #       mountPath: /data

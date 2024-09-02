@@ -16,7 +16,8 @@ public class AuditoriaDto {
     private Double nmDuracionOptimizado;
     private Integer nmTamanoArchivOrig;
     private Integer nmTamanoArchivOpti;
-    
+    private String codigoZf;
+
     public String getFmmPlaca() {
         return fmmPlaca;
     }
@@ -94,6 +95,12 @@ public class AuditoriaDto {
     }
     public void setNmTamanoArchivOpti(Integer nmTamanoArchivOpti) {
         this.nmTamanoArchivOpti = nmTamanoArchivOpti;
+    }
+    public String getCodigoZf() {
+        return codigoZf;
+    }
+    public void setCodigoZf(String codigoZf) {
+        this.codigoZf = codigoZf;
     }
     
 }

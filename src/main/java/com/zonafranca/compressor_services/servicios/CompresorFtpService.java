@@ -43,137 +43,286 @@ public class CompresorFtpService {
 		this.compresorAuditoriaService = compresorAuditoriaService;
 	}
 
-	public void procesarArchivo(JSONObject jsonObject, String rutaArchivo) throws IOException {
-		String id = jsonObject.getString("id");
-		String tipo = jsonObject.getString("tipo");
-		String nombreArchivo = new File(rutaArchivo).getName();
-
+	/**
+	 * Realiza el seteo de las variables fijas para guardar la auditoria en la bd
+	 * @param id
+	 * @param nombreArchivo
+	 * @param zonaFranca
+	 * @return
+	 */
+	private AuditoriaDto inicializarAuditoriaDto(String id, String nombreArchivo, String zonaFranca) {
 		AuditoriaDto auditoriaDto = new AuditoriaDto();
+		auditoriaDto.setCodigoZf(zonaFranca);
+		auditoriaDto.setIdSource(0);
 		auditoriaDto.setFmmPlaca(id);
 		auditoriaDto.setArchivo(nombreArchivo);
 		auditoriaDto.setFecha(new Date());
-		auditoriaDto.setVchOpe("Optimizacion archivos file-system");
+		return auditoriaDto;
+	}
 
-
+	/**
+	 * Realiza la conexion al ftp y el proceso de optimizacion del archivo
+	 * @param jsonObject
+	 * @param rutaArchivo
+	 * @throws IOException
+	 */
+	public void procesarArchivo(JSONObject jsonObject, String rutaArchivo) throws IOException {
+		String id = jsonObject.getString("id");
+		String tipo = jsonObject.getString("tipo");
+		String zonaFranca = jsonObject.getString("zonaFranca");
+		String nombreArchivo = new File(rutaArchivo).getName();
+	
+		AuditoriaDto auditoriaDto = inicializarAuditoriaDto(id, nombreArchivo, zonaFranca);
+	
 		FTPClient ftpClient = new FTPClient();
 		FTPClient ftpClient1 = new FTPClient();
-		try {
-			Date fechaInicioProceso = new Date();
-			// Conectar al servidor FTP
-			ftpClient.connect(ftpHost, Integer.valueOf(ftpPort));
-			ftpClient.login(ftpUser, ftpPassword);
-			ftpClient.enterLocalPassiveMode();
-			ftpClient.setFileType(FTP.BINARY_FILE_TYPE);
 	
-			ftpClient1.connect(ftpHost, Integer.valueOf(ftpPort));
-			ftpClient1.login(ftpUser, ftpPassword);
-			ftpClient1.enterLocalPassiveMode();
-			ftpClient1.setFileType(FTP.BINARY_FILE_TYPE);
+		try {
+			conectarAlServidorFTP(ftpClient, ftpHost, ftpPort, ftpUser, ftpPassword);
+			conectarAlServidorFTP(ftpClient1, ftpHost, ftpPort, ftpUser, ftpPassword);
+	
 			auditoriaDto.setVchRutaFinal(rutaArchivo);
 	
-			String rutaBase = "/picizweb/www/Digital/galleries";
+			String rutaBase = "/picizweb/www/Digital/galleries"; // es necesario retirar la ruta base para poder descargar el archivo, ya que la conexion al ftp se hace directo en galleries
 			String rutaSinBase = rutaArchivo.replaceFirst(rutaBase, "");
 	
-			// Descargar el archivo original a un ByteArrayOutputStream
-			ByteArrayOutputStream originalFileStream = new ByteArrayOutputStream();
-			boolean success = ftpClient.retrieveFile("/" + rutaSinBase, originalFileStream);
-			originalFileStream.close();
-			
-			if (success) {
-				byte[] archivoBytes = originalFileStream.toByteArray();
-				
-				// Copiar el archivo a la carpeta de backup
-				String rutaCompletaBackup = RUTA_BACKUP + nombreArchivo;
-				ftpCreateDirectoryTree(ftpClient, RUTA_BACKUP);
-				InputStream archivoInputStream = new ByteArrayInputStream(archivoBytes);
-				boolean done = ftpClient1.storeFile(rutaCompletaBackup, archivoInputStream);
-				archivoInputStream.close();
-				
-				if (done) {
-					logger.info("Archivo copiado a la carpeta de backup en el FTP: {}", rutaCompletaBackup);
-					
-					byte[] archivoComprimidoBytes = compresorArchivosService.comprimirArchivos(new ByteArrayInputStream(archivoBytes), rutaSinBase);
-					if (archivoComprimidoBytes != null) {
-						ftpClient1.sendCommand("SIZE", rutaCompletaBackup);
-						String reply = ftpClient1.getReplyString();
-						
-						if (ftpClient1.getReplyCode() == 213) { // Código de respuesta para el tamaño del archivo
-							long backupSize = Long.parseLong(reply.split(" ")[1].trim());
-							logger.info("Tamaño del archivo de backup: {} bytes", backupSize);
-							logger.info("Tamaño del archivo original: {} bytes", archivoComprimidoBytes.length);
-							
-							if (archivoComprimidoBytes.length > 0 && archivoComprimidoBytes.length < backupSize) {
-								InputStream archivoComprimidoStream = new ByteArrayInputStream(archivoComprimidoBytes);
-								ftpClient1.storeFile(rutaSinBase, archivoComprimidoStream);
-								archivoComprimidoStream.close();
-								ftpClient1.deleteFile(rutaCompletaBackup);
-
-								double duracionProceso = new Date().getTime() - (double)fechaInicioProceso.getTime() / 1000;
-								auditoriaDto.setVchObservacion("Archivo reemplazado por la versión optimizada");
-								auditoriaDto.setFeOptimizacion(new Date());
-								auditoriaDto.setNmDuracionOptimizado(duracionProceso);
-								auditoriaDto.setNmTamanoArchivOrig((int) backupSize);
-								auditoriaDto.setNmTamanoArchivOpti(archivoComprimidoBytes.length);
-								compresorAuditoriaService.registrarAuditoria(auditoriaDto);
-								logger.info("Archivo reemplazado por la versión optimizada... tipo={}, Formulario o placa={}, ruta={}, peso antes de optimizar={}, peso despues de optimizar={}, fecha={}, duracion del proceso={}", tipo, id, rutaArchivo, backupSize, archivoComprimidoBytes.length, new Date(), duracionProceso);
-							} else {
-								ftpClient1.rename(rutaCompletaBackup, rutaArchivo);
-								ftpClient1.deleteFile(rutaCompletaBackup);
-
-								double duracionProceso = new Date().getTime() - ((double) fechaInicioProceso.getTime() / 1000);
-								auditoriaDto.setVchObservacion("Archivo reemplazado por el archivo de backup por no ser más pequeño");
-								auditoriaDto.setFeOptimizacion(new Date());
-								auditoriaDto.setNmDuracionOptimizado(duracionProceso);
-								auditoriaDto.setNmTamanoArchivOrig((int) backupSize);
-								auditoriaDto.setNmTamanoArchivOpti(archivoComprimidoBytes.length);
-								compresorAuditoriaService.registrarAuditoria(auditoriaDto);
-								logger.info("Archivo de backup eliminado: {}", rutaCompletaBackup);
-								logger.info("Archivo reemplazado por el archivo de backup... tipo={}, Formulario o placa={}, ruta={}, peso antes de optimizar={}, peso despues de optimizar={}, fecha={}, duracion del proceso={}", tipo, id, rutaArchivo, backupSize, archivoComprimidoBytes.length, new Date(), duracionProceso);
-							}
-						} else {
-							ftpClient1.rename(rutaCompletaBackup, rutaArchivo);
-							ftpClient1.deleteFile(rutaCompletaBackup);
-
-							auditoriaDto.setVchObservacion("Archivo reemplazado por el archivo de backup se presento un error");
-							auditoriaDto.setFeOptimizacion(new Date());
-							compresorAuditoriaService.registrarAuditoria(auditoriaDto);
-							logger.info("Archivo de backup eliminado: {}", rutaCompletaBackup);
-							logger.info("Archivo reemplazado por el archivo de backup");
-							logger.error("No se pudo obtener el tamaño del archivo de backup: {}", rutaCompletaBackup);
-						}
-					} else {
-						auditoriaDto.setVchObservacion("Archivo reemplazado por el archivo de backup se presento un error");
-						auditoriaDto.setFeOptimizacion(new Date());
-						compresorAuditoriaService.registrarAuditoria(auditoriaDto);
-						double duracionProceso = new Date().getTime() - ((double) fechaInicioProceso.getTime() / 1000);
-						logger.error("Error al optimizar el archivo... tipo={}, Formulario o placa={}, ruta={}, peso antes de optimizar={}, peso despues de optimizar={}, fecha={}, duracion del proceso={}", tipo, id, rutaArchivo, null, null, new Date(), duracionProceso);
-					}
-					
-					
-					ftpClient.logout();
-					ftpClient.disconnect();
-					ftpClient1.logout();
-					ftpClient1.disconnect();
-				} else {
-					logger.info("Error al copiar el archivo a la carpeta de backup en el FTP: {} - {}", RUTA_BACKUP, ftpClient1.getReplyString());
-					ftpClient.logout();
-					ftpClient.disconnect();
-					ftpClient1.logout();
-					ftpClient1.disconnect();
-				}
+			byte[] archivoBytes = descargarArchivoDelFTP(ftpClient, rutaSinBase);
+			if (archivoBytes != null) {
+				procesarArchivoYCopiarBackup(ftpClient1, auditoriaDto, rutaArchivo, nombreArchivo, rutaSinBase, archivoBytes, tipo, id);
 			} else {
-				logger.warn("No se pudo descargar el archivo desde la ruta: {}", rutaArchivo);
+				logger.info("No se pudo descargar el archivo desde la ruta... tipo={}, Formulario o placa={}, ruta={}, peso antes de optimizar={}, peso despues de optimizar={}, fecha={}, duracion del proceso={}", tipo, id, rutaArchivo, 0, 0, new Date(), 0);
 			}
 		} catch (IOException e) {
-			ftpClient.logout();
-			ftpClient.disconnect();
-			ftpClient1.logout();
-			ftpClient1.disconnect();
-			logger.error("Error al procesar el archivo en el FTP", e);
+			manejarErrorFTP(ftpClient, ftpClient1, e);
+		} finally {
+			desconectarDelServidorFTP(ftpClient);
+			desconectarDelServidorFTP(ftpClient1);
 		}
 	}
 
-	private void ftpCreateDirectoryTree(FTPClient client, String dirTree) throws IOException {
+	/**
+	 * Realiza la conexion al servidor ftp
+	 * @param ftpClient
+	 * @param host
+	 * @param port
+	 * @param user
+	 * @param password
+	 * @throws IOException
+	 */
+	private void conectarAlServidorFTP(FTPClient ftpClient, String host, String port, String user, String password) throws IOException {
+		ftpClient.connect(host, Integer.valueOf(port));
+		ftpClient.login(user, password);
+		ftpClient.enterLocalPassiveMode();
+		ftpClient.setFileType(FTP.BINARY_FILE_TYPE);
+	}
+
+	/**
+	 * Se valida si el archivo existe en el ftp
+	 * @param ftpClient
+	 * @param rutaArchivo
+	 * @return
+	 * @throws IOException
+	 */
+	private byte[] descargarArchivoDelFTP(FTPClient ftpClient, String rutaArchivo) throws IOException {
+		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+		boolean success = ftpClient.retrieveFile("/" + rutaArchivo, outputStream);
+		outputStream.close();
+		return success ? outputStream.toByteArray() : null;
+	}
+
+	/**
+	 * Se realiza la copia del archivo a la carpeta de backup
+	 * @param ftpClient
+	 * @param auditoriaDto
+	 * @param rutaArchivo
+	 * @param nombreArchivo
+	 * @param rutaSinBase
+	 * @param archivoBytes
+	 * @param tipo
+	 * @param id
+	 * @throws IOException
+	 */
+	private void procesarArchivoYCopiarBackup(FTPClient ftpClient, AuditoriaDto auditoriaDto, String rutaArchivo, String nombreArchivo, 
+	String rutaSinBase, byte[] archivoBytes, String tipo, String id) throws IOException {
+		String rutaCompletaBackup = RUTA_BACKUP + nombreArchivo;
+		crearDirectorioFtp(ftpClient, RUTA_BACKUP);
+	
+		InputStream archivoInputStream = new ByteArrayInputStream(archivoBytes);
+		boolean done = ftpClient.storeFile(rutaCompletaBackup, archivoInputStream);
+		archivoInputStream.close();
+	
+		if (done) {
+			logger.info("Archivo copiado a la carpeta de backup en el FTP: {}", rutaCompletaBackup);
+			manejarArchivoComprimido(ftpClient, auditoriaDto, rutaArchivo, rutaCompletaBackup, rutaSinBase, archivoBytes, tipo, id);
+		} else {
+			logger.info("Error al copiar el archivo a la carpeta de backup en el FTP: {} - {}", RUTA_BACKUP, ftpClient.getReplyString());
+		}
+	}
+
+	/**
+	 * Se realiza la compresion del archivo y se valida si se reemplaza o no
+	 * @param ftpClient
+	 * @param auditoriaDto
+	 * @param rutaArchivo
+	 * @param rutaCompletaBackup
+	 * @param rutaSinBase
+	 * @param archivoBytes
+	 * @param tipo
+	 * @param id
+	 * @throws IOException
+	 */
+	private void manejarArchivoComprimido(FTPClient ftpClient, AuditoriaDto auditoriaDto, String rutaArchivo, String rutaCompletaBackup, 
+	String rutaSinBase, byte[] archivoBytes, String tipo, String id) throws IOException {
+		byte[] archivoComprimidoBytes = compresorArchivosService.comprimirArchivos(new ByteArrayInputStream(archivoBytes), rutaSinBase);
+		if (archivoComprimidoBytes != null) {
+			long backupSize = obtenerTamanoArchivoBackup(ftpClient, rutaCompletaBackup);
+			logger.info("Tamaño del archivo de backup: {} bytes", backupSize);
+			logger.info("Tamaño del archivo original: {} bytes", archivoComprimidoBytes.length);
+			if (archivoComprimidoBytes.length > 0 && archivoComprimidoBytes.length < backupSize) {
+				reemplazarArchivoOptimizado(ftpClient, auditoriaDto, rutaArchivo, rutaCompletaBackup, rutaSinBase, archivoComprimidoBytes, backupSize, tipo, id);
+			} else {
+				restaurarArchivoBackup(ftpClient, auditoriaDto, rutaArchivo, rutaCompletaBackup, backupSize, archivoComprimidoBytes, tipo, id);
+			}
+		} else {
+			manejarErrorCompresion(ftpClient, auditoriaDto, rutaCompletaBackup, rutaArchivo);
+		}
+	}
+
+	/**
+	 * Se obtiene el tamaño del archivo de backup
+	 * @param ftpClient
+	 * @param rutaBackup
+	 * @return
+	 * @throws IOException
+	 */
+	private long obtenerTamanoArchivoBackup(FTPClient ftpClient, String rutaBackup) throws IOException {
+		ftpClient.sendCommand("SIZE", rutaBackup);
+		String reply = ftpClient.getReplyString();
+		if (ftpClient.getReplyCode() == 213) {
+			return Long.parseLong(reply.split(" ")[1].trim());
+		} else {
+			throw new IOException("No se pudo obtener el tamaño del archivo de backup: " + rutaBackup);
+		}
+	}
+
+	/**
+	 * Se reemplaza el archivo original por el archivo optimizado
+	 * @param ftpClient
+	 * @param auditoriaDto
+	 * @param rutaArchivo
+	 * @param rutaCompletaBackup
+	 * @param rutaSinBase
+	 * @param archivoComprimidoBytes
+	 * @param backupSize
+	 * @param tipo
+	 * @param id
+	 * @throws IOException
+	 */
+	private void reemplazarArchivoOptimizado(FTPClient ftpClient, AuditoriaDto auditoriaDto, String rutaArchivo, String rutaCompletaBackup, 
+	String rutaSinBase, byte[] archivoComprimidoBytes, long backupSize, String tipo, String id) throws IOException {
+		InputStream archivoComprimidoStream = new ByteArrayInputStream(archivoComprimidoBytes);
+		ftpClient.storeFile(rutaSinBase, archivoComprimidoStream);
+		archivoComprimidoStream.close();
+		ftpClient.deleteFile(rutaCompletaBackup);
+	
+		double duracionProceso = calcularDuracionProceso(auditoriaDto);
+		auditoriaDto.setVchObservacion("Archivo reemplazado por la versión optimizada");
+		auditoriaDto.setFeOptimizacion(new Date());
+		auditoriaDto.setNmDuracionOptimizado(duracionProceso);
+		auditoriaDto.setNmTamanoArchivOrig((int) backupSize);
+		auditoriaDto.setNmTamanoArchivOpti(archivoComprimidoBytes.length);
+		compresorAuditoriaService.registrarAuditoria(auditoriaDto);
+		logger.info("Archivo reemplazado por la versión optimizada");
+		logger.info("Archivo reemplazado por la versión optimizada... tipo={}, Formulario o placa={}, ruta={}, peso antes de optimizar={}, peso despues de optimizar={}, fecha={}, duracion del proceso={}", tipo, id, rutaArchivo, backupSize, archivoComprimidoBytes.length, new Date(), duracionProceso);
+	}
+
+	/**
+	 * Se restaura el archivo original por el archivo de backup
+	 * @param ftpClient
+	 * @param auditoriaDto
+	 * @param rutaArchivo
+	 * @param rutaCompletaBackup
+	 * @param backupSize
+	 * @param archivoComprimidoBytes
+	 * @param tipo
+	 * @param id
+	 * @throws IOException
+	 */
+	private void restaurarArchivoBackup(FTPClient ftpClient, AuditoriaDto auditoriaDto, String rutaArchivo, String rutaCompletaBackup, long backupSize, byte[] archivoComprimidoBytes, String tipo, String id) throws IOException {
+		ftpClient.rename(rutaCompletaBackup, rutaArchivo);
+		ftpClient.deleteFile(rutaCompletaBackup);
+	
+		double duracionProceso = calcularDuracionProceso(auditoriaDto);
+		auditoriaDto.setVchObservacion("Archivo reemplazado por el archivo de backup por no ser más pequeño");
+		auditoriaDto.setFeOptimizacion(new Date());
+		auditoriaDto.setNmDuracionOptimizado(duracionProceso);
+		auditoriaDto.setNmTamanoArchivOrig((int) backupSize);
+		auditoriaDto.setNmTamanoArchivOpti(archivoComprimidoBytes.length);
+		compresorAuditoriaService.registrarAuditoria(auditoriaDto);
+		logger.info("Archivo reemplazado por el archivo de backup por no ser más pequeño");
+		logger.info("Archivo reemplazado por el archivo de backup... tipo={}, Formulario o placa={}, ruta={}, peso antes de optimizar={}, peso despues de optimizar={}, fecha={}, duracion del proceso={}", tipo, id, rutaArchivo, backupSize, archivoComprimidoBytes.length, new Date(), duracionProceso);
+	}
+
+	/**
+	 * Se maneja el error de compresion
+	 * @param ftpClient
+	 * @param auditoriaDto
+	 * @param rutaCompletaBackup
+	 * @param rutaArchivo
+	 * @throws IOException
+	 */
+	private void manejarErrorCompresion(FTPClient ftpClient, AuditoriaDto auditoriaDto, String rutaCompletaBackup, String rutaArchivo) throws IOException {
+		ftpClient.rename(rutaCompletaBackup, rutaArchivo);
+		ftpClient.deleteFile(rutaCompletaBackup);
+	
+		auditoriaDto.setVchObservacion("Archivo reemplazado por el archivo de backup debido a un error de optimizacion");
+		auditoriaDto.setFeOptimizacion(new Date());
+		compresorAuditoriaService.registrarAuditoria(auditoriaDto);
+	
+		logger.error("Archivo reemplazado por el archivo de backup debido a un error de optimizacion");
+	}
+
+	/**
+	 * Se maneja el error de conexion al ftp
+	 * @param ftpClient
+	 * @param ftpClient1
+	 * @param e
+	 * @throws IOException
+	 */
+	private void manejarErrorFTP(FTPClient ftpClient, FTPClient ftpClient1, IOException e) throws IOException {
+		desconectarDelServidorFTP(ftpClient);
+		desconectarDelServidorFTP(ftpClient1);
+		logger.error("Error al procesar el archivo en el FTP", e);
+	}
+	
+	/**
+	 * Se desconecta del servidor ftp
+	 * @param ftpClient
+	 * @throws IOException
+	 */
+	private void desconectarDelServidorFTP(FTPClient ftpClient) throws IOException {
+		if (ftpClient.isConnected()) {
+			ftpClient.logout();
+			ftpClient.disconnect();
+		}
+	}
+	
+	/**
+	 * Se calcula la duracion del proceso de optimizacion
+	 * @param auditoriaDto
+	 * @return
+	 */
+	private double calcularDuracionProceso(AuditoriaDto auditoriaDto) {
+		return (double) (new Date().getTime() - auditoriaDto.getFecha().getTime()) / (60 * 1000);
+	}
+
+	/**
+	 * Se crea el directorio en el ftp
+	 * @param client
+	 * @param dirTree
+	 * @throws IOException
+	 */
+	private void crearDirectorioFtp(FTPClient client, String dirTree) throws IOException {
 
 		boolean dirExists = true;
 
